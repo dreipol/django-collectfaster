@@ -1,0 +1,4 @@
+django>=1.6
+django-storages-redux>=1.2.3
+gevent>=1.1.1
+greenlet>=0.4.9
