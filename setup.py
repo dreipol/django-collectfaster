@@ -54,7 +54,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'django>=1.6',
-        'django-storages-redux>=1.2.3',
+        'django-storages>=1.5.0',
         'gevent>=1.1.1',
         'greenlet>=0.4.9',
     ],
