@@ -69,6 +69,11 @@ Set the amount of workers to 30::
     python manage.py collectstatic --faster --workers=30
 
 
+Spawn workers using ``multiprocessing`` instead of ``gevent``::
+
+    python manage.py collectstatic --faster --use-multiprocessing
+
+
 Credits
 -------
 
