@@ -39,8 +39,10 @@ If you are using S3 with ``django-storages`` you probably already have this conf
 
 Set the storage backends for your static and media files in the ``settings.py``::
 
-    STATICFILES_STORAGE = 'collectfaster.backends.S3StaticStorage'
-    DEFAULT_FILE_STORAGE = 'collectfaster.backends.S3MediaStorage'
+    STATICFILES_STORAGE = 'collectfaster.backends.boto.S3StaticStorage'
+    DEFAULT_FILE_STORAGE = 'collectfaster.backends.boto.S3MediaStorage'
+    # STATICFILES_STORAGE = 'collectfaster.backends.boto3.S3Boto3StaticStorage'
+    # DEFAULT_FILE_STORAGE = 'collectfaster.backends.boto3.S3Boto3MediaStorage'
 
 
 You should split your static and media files on your S3 in different folders and configure it in the ``settings.py``::
