@@ -2,6 +2,7 @@
 import multiprocessing
 import time
 
+from collections import OrderedDict
 from django.contrib.staticfiles.management.commands import collectstatic
 from gevent import joinall, monkey, spawn
 from gevent.queue import Queue as GeventQueue
@@ -18,6 +19,7 @@ class Command(collectstatic.Command):
         self.task_queue = None
         self.worker_spawn_method = None
         self.use_multiprocessing = False
+        self.found_files = OrderedDict()
 
     def add_arguments(self, parser):
         super(Command, self).add_arguments(parser)
@@ -39,6 +41,13 @@ class Command(collectstatic.Command):
 
         super(Command, self).set_options(**options)
 
+        if self.faster:
+            # The original management command of Django collects all the files and calls the post_process method of
+            # the storage backend within the same method. Because we are using a task queue, post processing is started
+            # before all files were collected.
+            self.post_process_original = self.post_process
+            self.post_process = False
+
     def handle(self, **options):
         start_time = time.time()
         super(Command, self).handle(**options)
@@ -56,6 +65,9 @@ class Command(collectstatic.Command):
         the queue for later processing.
         """
         if self.faster:
+            if prefixed_path not in self.found_files:
+                self.found_files[prefixed_path] = (source_storage, path)
+
             self.task_queue.put({
                 'handler_type': handler_type,
                 'path': path,
@@ -82,10 +94,31 @@ class Command(collectstatic.Command):
         """
         Create some concurrent workers that process the tasks simultaneously.
         """
-        result = super(Command, self).collect()
+        collected = super(Command, self).collect()
         if self.faster:
             self.worker_spawn_method()
-        return result
+            self.post_processor()
+        return collected
+
+    def post_processor(self):
+        # Here we check if the storage backend has a post_process
+        # method and pass it the list of modified files.
+        if self.post_process_original and hasattr(self.storage, 'post_process'):
+            processor = self.storage.post_process(self.found_files,
+                                                  dry_run=self.dry_run)
+            for original_path, processed_path, processed in processor:
+                if isinstance(processed, Exception):
+                    self.stderr.write("Post-processing '%s' failed!" % original_path)
+                    # Add a blank line before the traceback, otherwise it's
+                    # too easy to miss the relevant part of the error message.
+                    self.stderr.write("")
+                    raise processed
+                if processed:
+                    self.log("Post-processed '%s' as '%s'" %
+                             (original_path, processed_path), level=1)
+                    self.post_processed_files.append(original_path)
+                else:
+                    self.log("Skipped post-processing '%s'" % original_path)
 
     def gevent_spawn(self):
         """ Spawn worker threads (using gevent) """
